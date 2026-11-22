@@ -26,7 +26,7 @@
 		const result = await authClient.signIn.passkey();
 		loading = false;
 		if (result?.error) {
-			errorMessage = 'No se pudo iniciar sesión con Face ID.';
+			errorMessage = 'No se pudo iniciar sesión con passkey.';
 			return;
 		}
 		await goto('/', { invalidateAll: true });
@@ -49,7 +49,7 @@
 		disabled={loading}
 		class="rounded-2xl bg-teal-700 py-4 font-semibold text-white shadow-sm active:scale-[0.98] disabled:opacity-60 dark:bg-teal-600"
 	>
-		Entrar con Face ID
+		Entrar con passkey
 	</button>
 
 	<div class="flex items-center gap-3 text-sm text-stone-400">

@@ -44,7 +44,7 @@ Decisiones:
 ## Autenticación
 
 - Better Auth, usando el Postgres de Railway.
-- Passkeys (Face ID) como método principal.
+- Passkeys como método principal, con verificación obligatoria (`userVerification: 'required'`): el dispositivo o el gestor (iCloud, 1Password) siempre pide Face ID o el código. Se crean, listan y eliminan desde Ajustes.
 - Contraseña como respaldo.
 - 2FA (TOTP): queda para una fase posterior.
 - Registro deshabilitado en la fase 1; el usuario inicial se crea con un script.

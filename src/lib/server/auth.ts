@@ -25,7 +25,11 @@ export const auth = betterAuth({
 	plugins: [
 		passkey({
 			rpID: new URL(BETTER_AUTH_URL).hostname,
-			rpName: 'Quipu'
+			rpName: 'Quipu',
+			authenticatorSelection: {
+				residentKey: 'required',
+				userVerification: 'required'
+			}
 		}),
 		sveltekitCookies(getRequestEvent)
 	]
