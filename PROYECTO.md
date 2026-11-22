@@ -319,7 +319,7 @@ Código escrito el 2026-11-21, sin probar:
 - El script `npm run user:create` ya crea las categorías de ingreso, la cuenta "Efectivo" (PEN) y `user_settings`.
 
 Orden para salir a producción:
-1. Revisar tipos (`npm run check`).
-2. Aplicar las migraciones 0001 a 0003 (`npm run db:migrate`). Desde ese momento, producción con el código de la fase 1 deja de funcionar.
+1. ~~Revisar tipos (`npm run check`).~~
+2. ~~Aplicar las migraciones 0001 a 0003.~~ Aplicadas el 2026-11-21.
 3. Probar en local.
 4. Commit y push a `main`.
