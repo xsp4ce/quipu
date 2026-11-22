@@ -66,3 +66,52 @@ export function formatTime(date: Date): string {
 export function homeHrefForDay(day: string): string {
 	return day === todayInLima() ? '/' : `/?day=${day}`;
 }
+
+function clampedDay(year: number, monthIndex: number, day: number): string {
+	const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+	return new Date(Date.UTC(year, monthIndex, Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
+function dayParts(day: string): { year: number; monthIndex: number; dayOfMonth: number } {
+	const [year, month, dayOfMonth] = day.split('-').map(Number);
+	return { year, monthIndex: month - 1, dayOfMonth };
+}
+
+export type CardCycle = {
+	lastStatement: string;
+	nextStatement: string;
+	nextPaymentDue: string;
+};
+
+export function cardCycle(today: string, statementDay: number, paymentDueDay: number): CardCycle {
+	const { year, monthIndex } = dayParts(today);
+	const thisMonthStatement = clampedDay(year, monthIndex, statementDay);
+	const lastStatement =
+		thisMonthStatement <= today ? thisMonthStatement : clampedDay(year, monthIndex - 1, statementDay);
+	const last = dayParts(lastStatement);
+	const nextStatement = clampedDay(last.year, last.monthIndex + 1, statementDay);
+
+	const sameMonthDue = clampedDay(last.year, last.monthIndex, paymentDueDay);
+	const nextPaymentDue =
+		sameMonthDue > lastStatement ? sameMonthDue : clampedDay(last.year, last.monthIndex + 1, paymentDueDay);
+
+	return { lastStatement, nextStatement, nextPaymentDue };
+}
+
+const shortDayFormatter = new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+export function formatShortDay(day: string): string {
+	return shortDayFormatter.format(new Date(`${day}T12:00:00Z`));
+}
+
+const dateTimeFormatter = new Intl.DateTimeFormat('es-PE', {
+	day: 'numeric',
+	month: 'short',
+	hour: '2-digit',
+	minute: '2-digit',
+	timeZone: TIME_ZONE
+});
+
+export function formatDateTime(date: Date): string {
+	return dateTimeFormatter.format(date);
+}

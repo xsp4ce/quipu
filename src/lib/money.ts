@@ -28,3 +28,23 @@ export function centsToInput(cents: number): string {
 export function formatCents(cents: number, currency: Currency): string {
 	return formatters[currency].format(cents / 100);
 }
+
+export function parseOptionalAmountToCents(input: string): number | null {
+	const value = input.trim();
+	if (value === '') return 0;
+	if (!AMOUNT_PATTERN.test(value)) return null;
+	const [units, decimals = ''] = value.split(/[.,]/);
+	return Number(units) * 100 + Number(decimals.padEnd(2, '0'));
+}
+
+export function formatAbsCents(cents: number, currency: Currency): string {
+	return formatCents(Math.abs(cents), currency);
+}
+
+export function exchangeRateFromCents(penCents: number, usdCents: number): string {
+	return (penCents / usdCents).toFixed(6);
+}
+
+export function convertUsdCentsToPen(usdCents: number, rate: number): number {
+	return Math.round(usdCents * rate);
+}

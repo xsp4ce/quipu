@@ -209,4 +209,117 @@ Desarrollo local desde el celular:
 - WSL está en modo NAT, así que el puerto 5173 se redirige con `netsh interface portproxy` hacia la IP de WSL. Esa IP cambia al reiniciar WSL.
 - `BETTER_AUTH_URL=http://<IP de la PC>:5173` y `npm run dev -- --host`.
 
-Siguiente: fase 2 (cuentas bancarias y tarjetas de crédito).
+## Fase 2: cuentas, ingresos y transferencias
+
+### Alcance
+
+- Cuentas de tipo efectivo, cuenta bancaria y tarjeta de crédito. Cada una tiene una o dos monedas.
+- Movimientos de tipo gasto, ingreso, transferencia y saldo inicial.
+- Saldo de cada cuenta por moneda. En tarjetas: deuda del ciclo, deuda total, línea disponible y fechas de corte y pago.
+- Pantalla "Cuentas": lista con saldos, detalle con movimientos, y crear, editar o archivar.
+- El inicio no cambia: solo muestra los gastos del día. Un resumen de saldos puede ir más adelante en otra pestaña.
+- No se reconstruye el historial: cada cuenta arranca con su saldo inicial del día en que se crea.
+
+### Cuentas del usuario (las crea él desde la app)
+
+| Cuenta | Tipo | Monedas |
+|---|---|---|
+| Efectivo | Efectivo | PEN |
+| BCP | Cuenta bancaria | PEN y USD (pueden ser una cuenta bimoneda o dos cuentas) |
+| Interbank | Cuenta bancaria | PEN |
+| 3 tarjetas | Tarjeta de crédito | PEN y USD |
+| 1 tarjeta | Tarjeta de crédito | PEN |
+
+- La cuenta "Efectivo PEN" pasa a llamarse "Efectivo". "Efectivo USD" se elimina porque no tiene movimientos.
+- La línea de crédito de las tarjetas está en soles. La línea disponible es la línea menos la deuda en PEN, menos la deuda en USD convertida con el tipo de cambio de referencia definido en Ajustes.
+
+### Categorías
+
+- Gasto: Comida, Combustible, Pago de servicios, Suscripciones, Comisión de billetera.
+- Ingreso: Sueldo, Freelance, Devoluciones, Otros.
+
+### Comisión de billetera
+
+El ciclo es: Ahorros → pago de la tarjeta → recarga desde la tarjeta a una billetera → transferencia de la billetera a Ahorros. La billetera no se registra como cuenta.
+
+- Se registra como transferencia Tarjeta → Ahorros, con un campo opcional "Comisión".
+- Si sale X de la tarjeta y la comisión es C, se guardan: una salida de la tarjeta por X − C, una entrada a Ahorros por X − C y un gasto de C en la tarjeta con la categoría "Comisión de billetera". El total que sale de la tarjeta es X.
+- Las transferencias no cuentan como gasto, así que el reporte de esa categoría da exactamente lo que costaron las billeteras.
+
+### Formulario de movimiento
+
+1. Tipo: Gasto / Ingreso / Transferencia.
+2. Cuenta (por defecto la última usada). En transferencias: cuenta origen y cuenta destino.
+3. Moneda, solo si la cuenta es bimoneda (por defecto PEN).
+4. Monto. En transferencias entre monedas distintas, también el monto que llega; el tipo de cambio se calcula.
+5. Categoría, solo en gastos e ingresos.
+6. Comisión (opcional), solo en transferencias.
+7. Descripción (opcional).
+8. Fecha y hora.
+
+### Modelo de datos
+
+- `amount_cents` pasa a guardarse con signo: positivo cuando el dinero entra a la cuenta y negativo cuando sale. El saldo de una cuenta en una moneda es `SUM(amount_cents)`. En pantalla se muestra sin signo. Los gastos existentes se convierten a negativos.
+- Una transferencia son dos movimientos (`transfer_out` y `transfer_in`) enlazados por `transfer_id`. La comisión es un `expense` con el mismo `transfer_id`, así se edita y se borra junto con la transferencia.
+
+```
+account_kind (enum): cash | bank | credit_card
+category_kind (enum): expense | income
+
+financial_accounts
+  + kind          account_kind NOT NULL
+  + currencies    currency[] NOT NULL (1 o 2)
+  + institution   text NULL
+  + archived_at   timestamptz NULL
+  + updated_at    timestamptz NOT NULL
+  - currency
+
+credit_card_details
+  account_id          uuid PK FK -> financial_accounts.id
+  credit_limit_cents  bigint NOT NULL (> 0, en PEN)
+  statement_day       smallint NOT NULL (1-31)
+  payment_due_day     smallint NOT NULL (1-31)
+
+transfers
+  id             uuid PK
+  user_id        text FK -> user.id
+  exchange_rate  numeric(12,6) NULL
+  created_at     timestamptz NOT NULL
+
+transactions
+  type            expense | income | transfer_out | transfer_in | opening_balance
+  amount_cents    con signo según el tipo
+  category_id     obligatoria solo en expense e income
+  + transfer_id   uuid NULL FK -> transfers.id (obligatoria en transfer_out y transfer_in)
+  + INDEX (financial_account_id, occurred_at)
+
+categories
+  + kind  category_kind NOT NULL
+
+user_settings
+  user_id                  text PK FK -> user.id
+  usd_pen_reference_rate   numeric(10,4) NULL
+  updated_at               timestamptz NOT NULL
+```
+
+### Migración
+
+Se hace en tres pasos para no perder datos:
+
+1. `0001`: agregar enums, tablas y columnas nuevas.
+2. `0002` (SQL propio): pasar los datos existentes (tipo y monedas de las cuentas, renombrar "Efectivo", eliminar "Efectivo USD", gastos a negativo, categorías de ingreso, `user_settings`).
+3. `0003`: quitar `financial_accounts.currency`, volver obligatorias las columnas nuevas y agregar las restricciones de signo, categoría y transferencia.
+
+La base de datos es compartida entre desarrollo y producción. La migración rompe el código de la fase 1, así que se aplica justo antes de desplegar el código de la fase 2.
+
+### Estado de la fase 2
+
+Código escrito el 2026-11-21, sin probar:
+- Rutas: `/movements/new` y `/movements/[id]` (reemplazan a `/expenses/*`), `/accounts`, `/accounts/new`, `/accounts/[id]` y `/accounts/[id]/edit`. Ajustes incluye el tipo de cambio de referencia.
+- El script `npm run user:create` ya crea las categorías de ingreso, la cuenta "Efectivo" (PEN) y `user_settings`.
+
+Orden para salir a producción:
+1. Revisar tipos (`npm run check`).
+2. Aplicar las migraciones 0001 a 0003 (`npm run db:migrate`). Desde ese momento, producción con el código de la fase 1 deja de funcionar.
+3. Probar en local.
+4. Commit y push a `main`.

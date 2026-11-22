@@ -11,7 +11,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = session?.user ?? null;
 	event.locals.session = session?.session ?? null;
 
-	const guardedResolve: typeof resolve = (guardedEvent, options) => {
+	const guardedResolve: typeof resolve = async (guardedEvent, options) => {
 		if (!guardedEvent.locals.user && !PUBLIC_PATHS.has(guardedEvent.url.pathname)) {
 			return new Response(null, { status: 303, headers: { location: '/login' } });
 		}

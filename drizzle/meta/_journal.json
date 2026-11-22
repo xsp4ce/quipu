@@ -8,6 +8,27 @@
       "when": 1795307755838,
       "tag": "0000_phase1_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795314706470,
+      "tag": "0001_phase2_add_structures",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795314710167,
+      "tag": "0002_phase2_migrate_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795314727637,
+      "tag": "0003_phase2_constraints",
+      "breakpoints": true
     }
   ]
 }

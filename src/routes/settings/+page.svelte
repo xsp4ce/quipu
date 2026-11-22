@@ -47,6 +47,26 @@
 </section>
 
 <section class="mt-6">
+	<h2 class="mb-2 text-sm font-medium text-stone-600 dark:text-stone-400">Tipo de cambio de referencia (USD → PEN)</h2>
+	<form method="POST" action="?/saveRate" use:enhance={() => async ({ update }) => update({ reset: false })} class="flex gap-2">
+		<input
+			name="referenceRate"
+			inputmode="decimal"
+			autocomplete="off"
+			placeholder="3.75"
+			value={form?.rateValue ?? data.referenceRate}
+			class="min-w-0 flex-1 rounded-2xl border-0 bg-white px-4 py-3 shadow-sm outline-none focus:ring-2 focus:ring-teal-600 dark:bg-stone-900"
+		/>
+		<button type="submit" class="rounded-2xl bg-stone-900 px-5 font-semibold text-white active:scale-[0.98] dark:bg-stone-100 dark:text-stone-900">
+			Guardar
+		</button>
+	</form>
+	<p class="mt-1 text-xs text-stone-500">Se usa para calcular la línea disponible de las tarjetas con deuda en dólares.</p>
+	{#if form?.rateError}<p class="mt-1 text-sm text-red-600" role="alert">{form.rateError}</p>{/if}
+	{#if form?.rateSaved}<p class="mt-1 text-sm text-teal-700 dark:text-teal-400" role="status">Tipo de cambio guardado.</p>{/if}
+</section>
+
+<section class="mt-6">
 	<h2 class="mb-2 text-sm font-medium text-stone-600 dark:text-stone-400">Passkeys</h2>
 	{#if data.passkeys.length === 0}
 		<p class="rounded-2xl bg-white p-4 text-sm text-stone-500 shadow-sm dark:bg-stone-900">Aún no tienes passkeys.</p>

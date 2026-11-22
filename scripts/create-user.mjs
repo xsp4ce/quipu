@@ -4,18 +4,12 @@ import { createInterface } from 'node:readline';
 import postgres from 'postgres';
 import { hashPassword } from 'better-auth/crypto';
 
-const DEFAULT_CATEGORIES = [
-	'Comida',
-	'Combustible',
-	'Pago de servicios',
-	'Suscripciones',
-	'Comisión de billetera'
-];
+const DEFAULT_CATEGORIES = {
+	expense: ['Comida', 'Combustible', 'Pago de servicios', 'Suscripciones', 'Comisión de billetera'],
+	income: ['Sueldo', 'Freelance', 'Devoluciones', 'Otros']
+};
 
-const DEFAULT_ACCOUNTS = [
-	{ name: 'Efectivo PEN', currency: 'PEN' },
-	{ name: 'Efectivo USD', currency: 'USD' }
-];
+const DEFAULT_ACCOUNTS = [{ name: 'Efectivo', kind: 'cash', currencies: ['PEN'] }];
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -64,15 +58,22 @@ async function main() {
 				insert into account (id, account_id, provider_id, user_id, password)
 				values (${randomUUID()}, ${userId}, 'credential', ${userId}, ${passwordHash})
 			`;
-			for (const [index, categoryName] of DEFAULT_CATEGORIES.entries()) {
-				await tx`insert into categories (user_id, name, sort_order) values (${userId}, ${categoryName}, ${index + 1})`;
+			for (const [kind, names] of Object.entries(DEFAULT_CATEGORIES)) {
+				for (const [index, categoryName] of names.entries()) {
+					await tx`insert into categories (user_id, kind, name, sort_order) values (${userId}, ${kind}, ${categoryName}, ${index + 1})`;
+				}
 			}
 			for (const account of DEFAULT_ACCOUNTS) {
-				await tx`insert into financial_accounts (user_id, name, currency) values (${userId}, ${account.name}, ${account.currency})`;
+				await tx`
+					insert into financial_accounts (user_id, kind, name, currencies)
+					values (${userId}, ${account.kind}, ${account.name}, ${account.currencies}::currency[])
+				`;
 			}
+			await tx`insert into user_settings (user_id) values (${userId})`;
 		});
 
-		console.log(`User ${email} created with ${DEFAULT_CATEGORIES.length} categories and ${DEFAULT_ACCOUNTS.length} accounts`);
+		const categoryCount = Object.values(DEFAULT_CATEGORIES).flat().length;
+		console.log(`User ${email} created with ${categoryCount} categories and ${DEFAULT_ACCOUNTS.length} accounts`);
 	} finally {
 		await sql.end();
 	}

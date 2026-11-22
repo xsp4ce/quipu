@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CURRENCIES, formatCents } from '#lib/money.ts';
+	import { CURRENCIES, formatAbsCents, formatCents } from '#lib/money.ts';
 	import { formatTime } from '#lib/dates.ts';
 	import type { PageProps } from './$types';
 
@@ -8,12 +8,20 @@
 
 <header class="flex items-center justify-between py-2">
 	<h1 class="text-xl font-semibold tracking-tight">Quipu</h1>
-	<a
-		href="/settings"
-		class="rounded-full px-3 py-1.5 text-sm text-stone-600 active:bg-stone-200 dark:text-stone-400 dark:active:bg-stone-800"
-	>
-		Ajustes
-	</a>
+	<nav class="flex gap-1">
+		<a
+			href="/accounts"
+			class="rounded-full px-3 py-1.5 text-sm text-stone-600 active:bg-stone-200 dark:text-stone-400 dark:active:bg-stone-800"
+		>
+			Cuentas
+		</a>
+		<a
+			href="/settings"
+			class="rounded-full px-3 py-1.5 text-sm text-stone-600 active:bg-stone-200 dark:text-stone-400 dark:active:bg-stone-800"
+		>
+			Ajustes
+		</a>
+	</nav>
 </header>
 
 <nav class="mt-4 flex items-center justify-between" aria-label="Cambiar de día">
@@ -59,14 +67,14 @@
 		<ul class="divide-y divide-stone-200 overflow-hidden rounded-2xl bg-white shadow-sm dark:divide-stone-800 dark:bg-stone-900">
 			{#each data.expenses as expense (expense.id)}
 				<li>
-					<a href="/expenses/{expense.id}" class="flex items-center justify-between gap-3 px-4 py-3 active:bg-stone-50 dark:active:bg-stone-800">
+					<a href="/movements/{expense.id}" class="flex items-center justify-between gap-3 px-4 py-3 active:bg-stone-50 dark:active:bg-stone-800">
 						<div class="min-w-0">
 							<p class="font-medium">{expense.categoryName}</p>
 							<p class="truncate text-sm text-stone-500">
-								{formatTime(expense.occurredAt)}{#if expense.description}&nbsp;· {expense.description}{/if}
+								{formatTime(expense.occurredAt)} · {expense.accountName}{#if expense.description}&nbsp;· {expense.description}{/if}
 							</p>
 						</div>
-						<p class="shrink-0 font-semibold tabular-nums">{formatCents(expense.amountCents, expense.currency)}</p>
+						<p class="shrink-0 font-semibold tabular-nums">{formatAbsCents(expense.amountCents, expense.currency)}</p>
 					</a>
 				</li>
 			{/each}
@@ -75,8 +83,8 @@
 </section>
 
 <a
-	href={data.isToday ? '/expenses/new' : `/expenses/new?day=${data.day}`}
+	href={data.isToday ? '/movements/new' : `/movements/new?day=${data.day}`}
 	class="fixed right-1/2 bottom-[max(1.5rem,env(safe-area-inset-bottom))] translate-x-1/2 rounded-full bg-teal-700 px-6 py-3.5 font-semibold text-white shadow-lg active:scale-95 dark:bg-teal-600"
 >
-	+ Registrar gasto
+	+ Registrar
 </a>
