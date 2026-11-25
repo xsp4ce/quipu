@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ACCOUNT_KIND_LABELS, type AccountSummary } from '#lib/account-form.ts';
 	import { formatShortDay } from '#lib/dates.ts';
-	import { formatCents } from '#lib/money.ts';
+	import { formatAbsCents, formatCents } from '#lib/money.ts';
 
 	let { account }: { account: AccountSummary } = $props();
 </script>
@@ -19,7 +19,8 @@
 			{/each}
 		</div>
 		<p class="mt-1 text-sm text-stone-500">
-			Deuda · Corte {formatShortDay(account.card.nextStatement)} · Pago {formatShortDay(account.card.nextPaymentDue)}
+			Deuda{#if account.card.availableCents !== null}&nbsp;·
+				{#if account.card.availableCents < 0}<span class="text-red-600">Sobrelínea {formatAbsCents(account.card.availableCents, 'PEN')}</span>{:else}Disp. {formatCents(account.card.availableCents, 'PEN')}{/if}{/if}{#if account.card.cycle}&nbsp;· Pago {formatShortDay(account.card.cycle.nextPaymentDue)}{/if}
 		</p>
 	{:else}
 		<div class="mt-2 flex flex-wrap gap-x-4 text-lg font-semibold tabular-nums">

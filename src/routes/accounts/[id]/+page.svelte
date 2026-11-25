@@ -49,7 +49,9 @@
 			<div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-stone-900">
 				<p class="text-xs font-medium tracking-wide text-stone-500 uppercase">Deuda {currency}</p>
 				<p class="mt-1 text-xl font-semibold tabular-nums">{formatCents(card.debt[currency], currency)}</p>
-				<p class="mt-1 text-xs text-stone-500">Ciclo actual: {formatCents(card.cycleSpending[currency], currency)}</p>
+				{#if card.cycleSpending}
+					<p class="mt-1 text-xs text-stone-500">Ciclo actual: {formatCents(card.cycleSpending[currency], currency)}</p>
+				{/if}
 			</div>
 		{/each}
 	</section>
@@ -57,20 +59,24 @@
 		<dl class="grid grid-cols-2 gap-y-2">
 			<dt class="text-stone-500">Línea</dt>
 			<dd class="text-right tabular-nums">{formatCents(card.creditLimitCents, 'PEN')}</dd>
-			<dt class="text-stone-500">Disponible</dt>
+			<dt class="text-stone-500">{card.availableCents !== null && card.availableCents < 0 ? 'Sobrelínea' : 'Disponible'}</dt>
 			<dd class="text-right tabular-nums">
 				{#if card.availableCents === null}
 					<a href="/settings" class="text-teal-700 dark:text-teal-400">Define el tipo de cambio</a>
+				{:else if card.availableCents < 0}
+					<span class="text-red-600">{formatAbsCents(card.availableCents, 'PEN')}</span>
 				{:else}
-					<span class:text-red-600={card.availableCents < 0}>{formatCents(card.availableCents, 'PEN')}</span>
+					<span>{formatCents(card.availableCents, 'PEN')}</span>
 				{/if}
 			</dd>
-			<dt class="text-stone-500">Último corte</dt>
-			<dd class="text-right">{formatShortDay(card.lastStatement)}</dd>
-			<dt class="text-stone-500">Próximo corte</dt>
-			<dd class="text-right">{formatShortDay(card.nextStatement)}</dd>
-			<dt class="text-stone-500">Próximo pago</dt>
-			<dd class="text-right font-medium">{formatShortDay(card.nextPaymentDue)}</dd>
+			{#if card.cycle}
+				<dt class="text-stone-500">Último corte</dt>
+				<dd class="text-right">{formatShortDay(card.cycle.lastStatement)}</dd>
+				<dt class="text-stone-500">Próximo corte</dt>
+				<dd class="text-right">{formatShortDay(card.cycle.nextStatement)}</dd>
+				<dt class="text-stone-500">Próximo pago</dt>
+				<dd class="text-right font-medium">{formatShortDay(card.cycle.nextPaymentDue)}</dd>
+			{/if}
 		</dl>
 		{#if card.debt.USD > 0 && data.referenceRate}
 			<p class="mt-3 text-xs text-stone-500">Disponible calculado con tipo de cambio {data.referenceRate}.</p>

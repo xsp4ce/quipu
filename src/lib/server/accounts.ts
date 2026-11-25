@@ -17,6 +17,7 @@ import type { AccountKind, AccountOption } from '#lib/movement-form.ts';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_NAME_LENGTH = 60;
 const OPENING_BALANCE_TYPE = 'opening_balance';
+const CARD_CURRENCIES: Currency[] = ['PEN', 'USD'];
 const UNIQUE_VIOLATION = '23505';
 
 type AccountInput = {
@@ -25,7 +26,7 @@ type AccountInput = {
 	institution: string | null;
 	currencies: Currency[];
 	opening: CurrencyAmounts;
-	card: { creditLimitCents: number; statementDay: number; paymentDueDay: number } | null;
+	card: { creditLimitCents: number; statementDay: number | null; paymentDueDay: number | null } | null;
 };
 
 type ParsedAccountForm =
@@ -95,10 +96,15 @@ export async function listAccountSummaries(userId: string, accountId?: string): 
 		const accountBalances = balances.get(row.id) ?? emptyAmounts();
 		let card: CardSummary | null = null;
 
-		if (row.kind === 'credit_card' && row.creditLimitCents !== null && row.statementDay !== null && row.paymentDueDay !== null) {
-			const cycle = cardCycle(today, row.statementDay, row.paymentDueDay);
-			const cycleStart = limaDayRange(shiftDay(cycle.lastStatement, 1)).start;
-			const cycleSpending = (await sumByAccount(userId, [row.id], cycleStart, true)).get(row.id) ?? emptyAmounts();
+		if (row.kind === 'credit_card' && row.creditLimitCents !== null) {
+			const cycle =
+				row.statementDay !== null && row.paymentDueDay !== null ? cardCycle(today, row.statementDay, row.paymentDueDay) : null;
+			let cycleSpending: CurrencyAmounts | null = null;
+			if (cycle) {
+				const cycleStart = limaDayRange(shiftDay(cycle.lastStatement, 1)).start;
+				const spent = (await sumByAccount(userId, [row.id], cycleStart, true)).get(row.id) ?? emptyAmounts();
+				cycleSpending = { PEN: -spent.PEN, USD: -spent.USD };
+			}
 			const debt: CurrencyAmounts = {
 				PEN: Math.max(0, -accountBalances.PEN),
 				USD: Math.max(0, -accountBalances.USD)
@@ -109,12 +115,12 @@ export async function listAccountSummaries(userId: string, accountId?: string): 
 					: row.creditLimitCents - debt.PEN - (debt.USD > 0 && rate !== null ? convertUsdCentsToPen(debt.USD, rate) : 0);
 
 			card = {
-				...cycle,
 				creditLimitCents: row.creditLimitCents,
 				statementDay: row.statementDay,
 				paymentDueDay: row.paymentDueDay,
+				cycle,
 				debt,
-				cycleSpending: { PEN: -cycleSpending.PEN, USD: -cycleSpending.USD },
+				cycleSpending,
 				availableCents
 			};
 		}
@@ -220,20 +226,22 @@ export async function getAccountFormValues(userId: string, accountId: string): P
 		openingPEN: toInput(opening.get('PEN')?.amountCents),
 		openingUSD: toInput(opening.get('USD')?.amountCents),
 		creditLimit: account.creditLimitCents ? centsToPlain(account.creditLimitCents) : '',
+		available: '',
 		statementDay: account.statementDay ? String(account.statementDay) : '',
 		paymentDueDay: account.paymentDueDay ? String(account.paymentDueDay) : ''
 	};
 }
 
-export function parseAccountForm(formData: FormData, fixedKind?: AccountKind): ParsedAccountForm {
+export function parseAccountForm(formData: FormData, editingKind?: AccountKind): ParsedAccountForm {
 	const values: AccountFormValues = {
-		kind: fixedKind ?? String(formData.get('kind') ?? ''),
+		kind: editingKind ?? String(formData.get('kind') ?? ''),
 		name: String(formData.get('name') ?? '').trim(),
 		institution: String(formData.get('institution') ?? '').trim(),
 		currencies: formData.getAll('currencies').map(String),
 		openingPEN: String(formData.get('openingPEN') ?? '').trim(),
 		openingUSD: String(formData.get('openingUSD') ?? '').trim(),
 		creditLimit: String(formData.get('creditLimit') ?? '').trim(),
+		available: String(formData.get('available') ?? '').trim(),
 		statementDay: String(formData.get('statementDay') ?? '').trim(),
 		paymentDueDay: String(formData.get('paymentDueDay') ?? '').trim()
 	};
@@ -245,25 +253,41 @@ export function parseAccountForm(formData: FormData, fixedKind?: AccountKind): P
 	if (!values.name) errors.name = 'Ingresa un nombre';
 	if (values.name.length > MAX_NAME_LENGTH) errors.name = `Máximo ${MAX_NAME_LENGTH} caracteres`;
 
+	const isCard = kind === 'credit_card';
+	const usesAvailable = isCard && !editingKind;
+
+	if (isCard) values.currencies = [...CARD_CURRENCIES];
 	const currencies = CURRENCIES.filter((currency) => values.currencies.includes(currency));
 	if (currencies.length === 0 || !values.currencies.every(isCurrency)) errors.currencies = 'Elige al menos una moneda';
 
 	const opening = emptyAmounts();
-	for (const currency of currencies) {
-		const cents = parseOptionalAmountToCents(currency === 'PEN' ? values.openingPEN : values.openingUSD);
-		if (cents === null) errors[currency === 'PEN' ? 'openingPEN' : 'openingUSD'] = 'Ingresa un monto válido';
-		else opening[currency] = kind === 'credit_card' ? -cents : cents;
+	if (!usesAvailable) {
+		for (const currency of currencies) {
+			const cents = parseOptionalAmountToCents(currency === 'PEN' ? values.openingPEN : values.openingUSD);
+			if (cents === null) errors[currency === 'PEN' ? 'openingPEN' : 'openingUSD'] = 'Ingresa un monto válido';
+			else opening[currency] = isCard ? -cents : cents;
+		}
 	}
 
 	let card: AccountInput['card'] = null;
-	if (kind === 'credit_card') {
+	if (isCard) {
 		const creditLimitCents = parseAmountToCents(values.creditLimit);
-		const statementDay = parseDay(values.statementDay);
-		const paymentDueDay = parseDay(values.paymentDueDay);
 		if (creditLimitCents === null) errors.creditLimit = 'Ingresa la línea de crédito';
-		if (statementDay === null) errors.statementDay = 'Día entre 1 y 31';
-		if (paymentDueDay === null) errors.paymentDueDay = 'Día entre 1 y 31';
-		if (creditLimitCents !== null && statementDay !== null && paymentDueDay !== null) {
+
+		if (usesAvailable) {
+			const availableCents = parseSignedAmountToCents(values.available);
+			if (availableCents === null) errors.available = 'Ingresa el disponible (negativo si estás en sobrelínea)';
+			else if (creditLimitCents !== null) opening.PEN = availableCents - creditLimitCents;
+		}
+
+		const statementDay = parseOptionalDay(values.statementDay);
+		const paymentDueDay = parseOptionalDay(values.paymentDueDay);
+		if (statementDay === undefined) errors.statementDay = 'Día entre 1 y 31';
+		if (paymentDueDay === undefined) errors.paymentDueDay = 'Día entre 1 y 31';
+		if (statementDay === null && paymentDueDay !== null && paymentDueDay !== undefined) errors.statementDay = 'Ingresa ambos días o ninguno';
+		if (paymentDueDay === null && statementDay !== null && statementDay !== undefined) errors.paymentDueDay = 'Ingresa ambos días o ninguno';
+
+		if (creditLimitCents !== null && statementDay !== undefined && paymentDueDay !== undefined) {
 			card = { creditLimitCents, statementDay, paymentDueDay };
 		}
 	}
@@ -419,10 +443,20 @@ async function openingBalances(accountId: string) {
 	return new Map(rows.map((row) => [row.currency, row]));
 }
 
-function parseDay(value: string): number | null {
-	if (!/^\d{1,2}$/.test(value)) return null;
+function parseOptionalDay(value: string): number | null | undefined {
+	if (value === '') return null;
+	if (!/^\d{1,2}$/.test(value)) return undefined;
 	const day = Number(value);
-	return day >= 1 && day <= 31 ? day : null;
+	return day >= 1 && day <= 31 ? day : undefined;
+}
+
+function parseSignedAmountToCents(value: string): number | null {
+	const negative = value.startsWith('-');
+	const body = negative ? value.slice(1).trim() : value;
+	if (body === '') return null;
+	const cents = parseOptionalAmountToCents(body);
+	if (cents === null) return null;
+	return negative ? -cents : cents;
 }
 
 function centsToPlain(cents: number): string {

@@ -18,6 +18,7 @@ export type AccountFormValues = {
 	openingPEN: string;
 	openingUSD: string;
 	creditLimit: string;
+	available: string;
 	statementDay: string;
 	paymentDueDay: string;
 };
@@ -30,12 +31,13 @@ export function isAccountKind(value: unknown): value is AccountKind {
 
 export type CurrencyAmounts = Record<Currency, number>;
 
-export type CardSummary = CardCycle & {
+export type CardSummary = {
 	creditLimitCents: number;
-	statementDay: number;
-	paymentDueDay: number;
+	statementDay: number | null;
+	paymentDueDay: number | null;
+	cycle: CardCycle | null;
 	debt: CurrencyAmounts;
-	cycleSpending: CurrencyAmounts;
+	cycleSpending: CurrencyAmounts | null;
 	availableCents: number | null;
 };
 

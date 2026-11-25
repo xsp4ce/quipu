@@ -14,6 +14,7 @@ export const load: PageServerLoad = ({ locals }) => {
 		openingPEN: '',
 		openingUSD: '',
 		creditLimit: '',
+		available: '',
 		statementDay: '',
 		paymentDueDay: ''
 	};

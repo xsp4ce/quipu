@@ -66,8 +66,8 @@ export const creditCardDetails = pgTable(
 			.primaryKey()
 			.references(() => financialAccounts.id, { onDelete: 'cascade' }),
 		creditLimitCents: bigint({ mode: 'number' }).notNull(),
-		statementDay: smallint().notNull(),
-		paymentDueDay: smallint().notNull()
+		statementDay: smallint(),
+		paymentDueDay: smallint()
 	},
 	(table) => [
 		check('credit_card_details_credit_limit_check', sql`${table.creditLimitCents} > 0`),

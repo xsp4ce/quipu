@@ -1,5 +1,7 @@
 # Quipu
 
+> Para retomar el proyecto, empieza por la sección **"Retomar aquí"** al final de este archivo.
+
 App personal de finanzas, totalmente customizada, de uso desde el celular (iPhone).
 
 El nombre viene del quipu, el sistema de cuerdas y nudos que usaban los incas para llevar cuentas.
@@ -131,6 +133,8 @@ Al editar, el formulario incluye la opción Eliminar, con confirmación.
 
 ### Modelo de datos
 
+Nota: este es el modelo original de la fase 1. Lo reemplazó el de la fase 2 (ver más abajo).
+
 Tablas de Better Auth (las genera la librería): `user`, `session`, `account`, `verification`, `passkey`.
 
 Better Auth ya usa el nombre `account`, por eso las cuentas de dinero se llaman `financial_accounts`.
@@ -185,7 +189,7 @@ Datos iniciales por usuario:
 - Credenciales en `quipu/.env` (no se versiona).
 - `DATABASE_URL`: para migraciones desde la máquina local se usa la URL pública de Railway (`DATABASE_PUBLIC_URL`). En producción, dentro de Railway, se usa la URL privada.
 
-## Próximo paso
+## Estado de la fase 1
 
 **Fase 1 completa (2026-11-21).** Probada desde Safari en el iPhone, en la red local: login con contraseña y registro de gastos funcionando.
 
@@ -196,7 +200,7 @@ Hecho:
 
 Pendiente, fuera del alcance de la fase 1:
 1. ~~Configuración de la PWA (manifest e íconos) para instalarla en la pantalla de inicio.~~
-2. Deploy en Railway. Las passkeys solo funcionan con HTTPS y un dominio, así que Face ID se prueba después del deploy.
+2. ~~Deploy en Railway.~~ Desplegado y passkeys funcionando (verificación obligatoria; la passkey del usuario quedó en 1Password).
 
 Deploy:
 - Repositorio privado en GitHub. Railway despliega automáticamente con cada push a `main`.
@@ -321,5 +325,55 @@ Código escrito el 2026-11-21, sin probar:
 Orden para salir a producción:
 1. ~~Revisar tipos (`npm run check`).~~
 2. ~~Aplicar las migraciones 0001 a 0003.~~ Aplicadas el 2026-11-21.
-3. Probar en local.
-4. Commit y push a `main`.
+3. Commit y push a `main`. Pendiente: lo hace el usuario.
+4. Probar en producción.
+
+## Retomar aquí
+
+Última sesión: 2026-11-21.
+
+### Estado actual
+
+- **Fase 1:** completa y desplegada en Railway.
+- **Fase 2:** código completo, `npm run check` sin errores y migraciones 0001 a 0003 aplicadas en la base de datos compartida.
+- **Producción está caída** hasta que se haga commit y push del código de la fase 2. La base de datos ya tiene el modelo nuevo y el código desplegado sigue siendo el de la fase 1.
+
+### Pendiente inmediato
+
+1. Commit y push a `main`:
+   ```
+   Phase 2: accounts, credit cards, incomes and transfers
+
+   - Add cash, bank and credit card accounts with opening balances
+   - Add incomes and transfers with optional wallet commission
+   - Show credit card debt, cycle spending, statement and due dates
+   - Add USD to PEN reference rate in settings
+   - Store signed amounts and migrate existing data
+   ```
+2. Probar en producción, en este orden:
+   1. Crear las cuentas: BCP, Interbank y las 4 tarjetas, con su saldo o deuda actual.
+   2. Registrar un gasto con tarjeta en dólares.
+   3. Registrar una transferencia con comisión.
+   4. Guardar el tipo de cambio en Ajustes y revisar la línea disponible de una tarjeta.
+3. Corregir lo que salga de las pruebas.
+4. Pasar a la fase 3: deudas con bancos y préstamos personales. Hay que definir el alcance con el usuario antes de modelar.
+
+### Temas abiertos
+
+- `npm install` reportó vulnerabilidades en dependencias. No se revisaron ni se corrigieron (`npm audit fix --force` puede romper cosas).
+- La categoría "Comisión de billetera" se busca por nombre al registrar una transferencia con comisión. Si se renombra, la comisión falla.
+- La lista de movimientos de una cuenta muestra los últimos 200. No hay paginación.
+- Resumen de saldos en otra pestaña del inicio: pedido para más adelante.
+
+### Notas técnicas
+
+- **SvelteKit 3:**
+  - Las variables de entorno se declaran en `src/env.ts` (`defineEnvVars`) y se importan desde `$app/env/private`.
+  - `building` viene de `$app/env`.
+  - El tipo `Handle` está en `@sveltejs/kit/hooks`.
+  - Los imports con `#lib/...` llevan la extensión `.ts`.
+- **Protección de rutas:** está en `src/hooks.server.ts`. Toda ruta excepto `/login` exige sesión. Además, cada load y cada action llama a `requireUser`.
+- **Migraciones:** se generan con `npm run db:generate` y se aplican con `npm run db:migrate`. Si un cambio agrega y quita columnas en la misma tabla, drizzle-kit pregunta de forma interactiva si es un renombre. Para evitarlo, hacerlo en pasos separados, como en la fase 2.
+- **Base de datos compartida:** desarrollo y producción usan la misma. Una migración que rompe el código anterior se aplica justo antes del push y con confirmación del usuario.
+- **Probar desde el celular en local:** el puerto se redirige con `netsh interface portproxy` hacia la IP de WSL, que cambia al reiniciar. La IP de la PC en la red es `192.168.18.96`.
+- **Íconos:** se generaron con un script de Node sin dependencias (no hay ImageMagick). Si hay que regenerarlos, se pueden hacer de nuevo de la misma forma.

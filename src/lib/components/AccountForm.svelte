@@ -72,6 +72,11 @@
 		</div>
 	{/if}
 
+	{#if isCard}
+		{#each CURRENCIES as currency (currency)}
+			<input type="hidden" name="currencies" value={currency} />
+		{/each}
+	{:else}
 	<fieldset>
 		<legend class={labelClass}>Monedas</legend>
 		<div class="flex gap-2">
@@ -93,12 +98,13 @@
 		</div>
 		{#if errors.currencies}<p class="mt-1 text-sm text-red-600">{errors.currencies}</p>{/if}
 	</fieldset>
+	{/if}
 
-	{#each CURRENCIES.filter((currency) => currencies.includes(currency)) as currency (currency)}
+	{#each !isCard ? CURRENCIES.filter((currency) => currencies.includes(currency)) : kindLocked ? CURRENCIES : [] as currency (currency)}
 		{@const field = currency === 'PEN' ? 'openingPEN' : 'openingUSD'}
 		<div>
 			<label for={field} class={labelClass}>
-				{isCard ? 'Deuda actual' : 'Saldo actual'} en {currency}
+				{isCard ? 'Deuda inicial' : 'Saldo actual'} en {currency}
 			</label>
 			<input id={field} name={field} inputmode="decimal" autocomplete="off" placeholder="0.00" value={values[field]} class={inputClass} />
 			{#if errors[field]}<p class="mt-1 text-sm text-red-600">{errors[field]}</p>{/if}
@@ -111,14 +117,22 @@
 			<input id="creditLimit" name="creditLimit" inputmode="decimal" autocomplete="off" placeholder="0.00" value={values.creditLimit} class={inputClass} />
 			{#if errors.creditLimit}<p class="mt-1 text-sm text-red-600">{errors.creditLimit}</p>{/if}
 		</div>
+		{#if !kindLocked}
+			<div>
+				<label for="available" class={labelClass}>Disponible actual (PEN)</label>
+				<input id="available" name="available" inputmode="decimal" autocomplete="off" placeholder="0.00" value={values.available} class={inputClass} />
+				<p class="mt-1 text-xs text-stone-500">Si estás en sobrelínea, ingrésalo en negativo (por ejemplo -150.00).</p>
+				{#if errors.available}<p class="mt-1 text-sm text-red-600">{errors.available}</p>{/if}
+			</div>
+		{/if}
 		<div class="grid grid-cols-2 gap-3">
 			<div>
-				<label for="statementDay" class={labelClass}>Día de corte</label>
+				<label for="statementDay" class={labelClass}>Día de corte <span class="font-normal text-stone-400">(opcional)</span></label>
 				<input id="statementDay" name="statementDay" inputmode="numeric" placeholder="20" value={values.statementDay} class={inputClass} />
 				{#if errors.statementDay}<p class="mt-1 text-sm text-red-600">{errors.statementDay}</p>{/if}
 			</div>
 			<div>
-				<label for="paymentDueDay" class={labelClass}>Día de pago</label>
+				<label for="paymentDueDay" class={labelClass}>Día de pago <span class="font-normal text-stone-400">(opcional)</span></label>
 				<input id="paymentDueDay" name="paymentDueDay" inputmode="numeric" placeholder="5" value={values.paymentDueDay} class={inputClass} />
 				{#if errors.paymentDueDay}<p class="mt-1 text-sm text-red-600">{errors.paymentDueDay}</p>{/if}
 			</div>
